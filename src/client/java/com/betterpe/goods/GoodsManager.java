@@ -35,8 +35,13 @@ import java.util.regex.Pattern;
  */
 public final class GoodsManager {
 
-	private static final String RESPAWNING_PREFIX = "리스폰 중인 특산품:";
-	private static final String SPAWNED_PREFIX = "현재 필드에 스폰된 특산품:";
+	// /goods reports every category at once under the generic word "특산품", e.g.
+	// "현재 필드에 스폰된 특산품: ...". Per-category commands (/모래, /목재, ...) use the same
+	// two line shapes but put their own category name in that spot instead - "현재 필드에
+	// 스폰된 모래: ...", "리스폰 중인 목재: ..." - so the category has to be captured, not fixed.
+	private static final String GENERIC_CATEGORY = "특산품";
+	private static final Pattern SPAWNED_LINE = Pattern.compile("현재 필드에 스폰된\\s*([^:]+):(.*)");
+	private static final Pattern RESPAWNING_LINE = Pattern.compile("리스폰 중인\\s*([^:]+):(.*)");
 
 	// Trailing "(...분)" / "(...시간...)" time token in a respawning entry.
 	private static final Pattern TIME_TAIL = Pattern.compile("\\(([^()]*(?:시간|분|초)[^()]*)\\)\\s*$");
@@ -63,6 +68,7 @@ public final class GoodsManager {
 	private static final Map<String, GoodsEntry> ENTRIES = new LinkedHashMap<>();
 	private static volatile String selectedKey = null;
 	private static long lastSyncLineMs = 0L;
+	private static String lastSyncCategory = "";
 
 	private static volatile String acquireText = null;
 	private static volatile long acquireStartMs = 0L;
@@ -89,27 +95,39 @@ public final class GoodsManager {
 			return;
 		}
 
-		int idx = plain.indexOf(RESPAWNING_PREFIX);
-		if (idx >= 0) {
-			beginSyncWindow();
-			parseRespawning(plain.substring(idx + RESPAWNING_PREFIX.length()));
+		Matcher rl = RESPAWNING_LINE.matcher(plain);
+		if (rl.find()) {
+			beginSyncWindow(rl.group(1).trim());
+			parseRespawning(rl.group(2));
 			return;
 		}
-		idx = plain.indexOf(SPAWNED_PREFIX);
-		if (idx >= 0) {
-			beginSyncWindow();
-			parseSpawned(plain.substring(idx + SPAWNED_PREFIX.length()));
+		Matcher sl = SPAWNED_LINE.matcher(plain);
+		if (sl.find()) {
+			beginSyncWindow(sl.group(1).trim());
+			parseSpawned(sl.group(2));
 		}
 	}
 
-	/** /goods responses arrive as separate lines; wipe stale state once per fresh invocation
-	 *  so the tracker stays in sync with the server instead of accumulating old entries. */
-	private static void beginSyncWindow() {
+	/**
+	 * Responses arrive as separate lines; wipe stale state once per fresh invocation so the
+	 * tracker stays in sync with the server instead of accumulating old entries. /goods
+	 * (category "특산품") reports the whole picture, so a fresh call there wipes everything.
+	 * A per-category command only ever reports its own slice, so a fresh call there only
+	 * wipes entries of that same category - otherwise checking /모래 would erase whatever
+	 * /goods or /목재 had already told us about other goods.
+	 */
+	private static void beginSyncWindow(String category) {
 		long now = System.currentTimeMillis();
-		if (now - lastSyncLineMs > SYNC_GAP_MS) {
-			ENTRIES.clear();
+		if (now - lastSyncLineMs > SYNC_GAP_MS || !category.equals(lastSyncCategory)) {
+			if (GENERIC_CATEGORY.equals(category)) {
+				ENTRIES.clear();
+			} else {
+				String categoryKey = GoodsEntry.normalize(category);
+				ENTRIES.values().removeIf(e -> GoodsEntry.normalize(GoodsEntry.baseName(e.name)).equals(categoryKey));
+			}
 		}
 		lastSyncLineMs = now;
+		lastSyncCategory = category;
 	}
 
 	private static void parseRespawning(String body) {
