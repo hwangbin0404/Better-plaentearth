@@ -1,0 +1,44 @@
+{
+	"schemaVersion": 1,
+	"id": "betterpe",
+	"version": "${version}",
+	"name": "Better PlanetEarth",
+	"description": "Lunar Client-style HUD & utility mod for the PlanetEarth server: movable HUD, war notifier, nation/town tags, location display, goods recommender, ally chat highlighting.",
+	"authors": [
+		"Rokudenashi"
+	],
+	"contact": {
+		"homepage": "https://planetearth.kr",
+		"sources": "https://github.com/hwangbin0404/Better-plaentearth",
+		"issues": "https://github.com/hwangbin0404/Better-plaentearth/issues"
+	},
+	"license": "CC0-1.0",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.betterpe.BetterPlanetEarth"
+		],
+		"client": [
+			"com.betterpe.BetterPlanetEarthClient"
+		],
+		"modmenu": [
+			"com.betterpe.config.ModMenuIntegration"
+		]
+	},
+	"mixins": [
+		{
+			"config": "betterpe.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.19.3",
+		"minecraft": ">=1.20.1 <=1.20.4",
+		"java": ">=17",
+		"fabric-api": "*",
+		"cloth-config2": "*"
+	},
+	"suggests": {
+		"modmenu": "*"
+	}
+}

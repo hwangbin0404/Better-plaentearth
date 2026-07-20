@@ -1,0 +1,28 @@
+# gradle
+.gradle/
+build/
+
+# idea
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
+# eclipse
+.project
+.classpath
+.settings/
+bin/
+
+# vscode
+.vscode/
+
+# fabric
+run/
+
+# claude code local settings
+.claude/settings.local.json
+
+# logs
+logs/

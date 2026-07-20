@@ -1,0 +1,18 @@
+{
+	"key.betterpe.edit_hud": "Edit HUD",
+	"key.betterpe.headcount": "Headcount (hold)",
+	"key.betterpe.boat_automove": "Boat Auto-Move (toggle)",
+	"category.betterpe.general": "Better PlanetEarth",
+
+	"text.betterpe.title": "Better PlanetEarth Settings",
+	"text.betterpe.category.general": "General",
+	"text.betterpe.category.war": "War Notifier",
+	"text.betterpe.category.tag": "Nation/Town Tag",
+	"text.betterpe.category.location": "Location HUD",
+	"text.betterpe.category.goods": "Goods Recommender",
+	"text.betterpe.category.chat": "Ally Chat Highlight",
+	"text.betterpe.category.headcount": "Headcount",
+	"text.betterpe.category.brewery": "Brewery Timer",
+	"text.betterpe.category.boat": "Boat Auto-Move",
+	"text.betterpe.category.update": "Update Checker"
+}

@@ -1,0 +1,11 @@
+'기차역' | label='기차역' | markers=25 | areas=0
+'towny.markerset' | label='Towny' | markers=285 | areas=580
+'항구' | label='항구' | markers=45 | areas=0
+'siegewar.markerset' | label='SiegeWar' | markers=0 | areas=0
+'worldborder.markerset' | label='WorldBorder' | markers=0 | areas=1
+'goods' | label='특산품' | markers=141 | areas=0
+'canal' | label='운하' | markers=5 | areas=0
+'townykoth.markerset' | label='TownyKOTH' | markers=44 | areas=0
+'conquest' | label='conquest' | markers=0 | areas=0
+'달' | label='달' | markers=0 | areas=0
+'markers' | label='Markers' | markers=0 | areas=0

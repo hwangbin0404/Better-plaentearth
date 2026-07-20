@@ -1,0 +1,18 @@
+{
+	"key.betterpe.edit_hud": "HUD 편집",
+	"key.betterpe.headcount": "인원파악 (누르고 있기)",
+	"key.betterpe.boat_automove": "보트 자동이동 (토글)",
+	"category.betterpe.general": "Better PlanetEarth",
+
+	"text.betterpe.title": "Better PlanetEarth 설정",
+	"text.betterpe.category.general": "일반",
+	"text.betterpe.category.war": "전쟁 알리미",
+	"text.betterpe.category.tag": "국가/마을 태그",
+	"text.betterpe.category.location": "위치 표시",
+	"text.betterpe.category.goods": "특산품 추천",
+	"text.betterpe.category.chat": "아군 채팅 강조",
+	"text.betterpe.category.headcount": "인원파악",
+	"text.betterpe.category.brewery": "양조 타이머",
+	"text.betterpe.category.boat": "보트 자동이동",
+	"text.betterpe.category.update": "업데이트 확인"
+}
