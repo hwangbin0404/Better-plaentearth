@@ -347,6 +347,11 @@ public final class GoodsManager {
 		return selectedKey != null ? ENTRIES.get(selectedKey) : null;
 	}
 
+	/** The dynmap marker for the currently selected good, or null if unselected/unresolved. */
+	public static MapMarker selectedMarker() {
+		return selectedKey != null ? findGoodsMarker(selectedKey) : null;
+	}
+
 	/** Drives the boss bar for the selected good; called each client tick. */
 	public static void tick() {
 		Config cfg = ConfigManager.get();

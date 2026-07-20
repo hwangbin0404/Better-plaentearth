@@ -15,6 +15,7 @@ import com.betterpe.hud.BossBarOverlay;
 import com.betterpe.hud.HudEditScreen;
 import com.betterpe.hud.HudManager;
 import com.betterpe.hud.HudRenderer;
+import com.betterpe.hud.elements.GoodsBeaconHudElement;
 import com.betterpe.hud.elements.LocationHudElement;
 import com.betterpe.hud.elements.ScoreboardHudElement;
 import com.betterpe.tag.PlayerTagRenderer;
@@ -41,6 +42,7 @@ public class BetterPlanetEarthClient implements ClientModInitializer {
 		HudManager.register(ScoreboardHudElement.INSTANCE);
 		HudManager.register(LocationHudElement.INSTANCE);
 		HudManager.register(BossBarOverlay.INSTANCE);
+		HudManager.register(GoodsBeaconHudElement.INSTANCE);
 
 		// Renderers / overlays.
 		HudRenderer.init();
