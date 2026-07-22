@@ -26,3 +26,7 @@ run/
 
 # logs
 logs/
+
+# status backend
+server/node_modules/
+server/data/

@@ -14,5 +14,6 @@
 	"text.betterpe.category.headcount": "인원파악",
 	"text.betterpe.category.brewery": "양조 타이머",
 	"text.betterpe.category.boat": "보트 자동이동",
-	"text.betterpe.category.update": "업데이트 확인"
+	"text.betterpe.category.update": "업데이트 확인",
+	"text.betterpe.category.remote": "원격 상태 페이지"
 }

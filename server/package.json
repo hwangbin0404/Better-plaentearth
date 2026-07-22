@@ -1,0 +1,15 @@
+{
+  "name": "better-planetearth-status",
+  "version": "1.0.0",
+  "description": "Realtime online/queue status page + remote disconnect for Better PlanetEarth mod players.",
+  "private": true,
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "cookie-parser": "^1.4.6",
+    "express": "^4.19.2",
+    "ws": "^8.17.1"
+  }
+}

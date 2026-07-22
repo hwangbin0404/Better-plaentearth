@@ -1,6 +1,7 @@
 package com.betterpe.chat;
 
 import com.betterpe.goods.GoodsManager;
+import com.betterpe.remote.RemoteStatusManager;
 import com.betterpe.war.WarManager;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
 import net.minecraft.text.Text;
@@ -24,6 +25,7 @@ public final class ChatDispatcher {
 			try {
 				WarManager.onChat(plain);
 				GoodsManager.onChat(plain);
+				RemoteStatusManager.onChat(plain);
 			} catch (Exception ignored) {
 				// Never let a parser hiccup drop the chat line.
 			}

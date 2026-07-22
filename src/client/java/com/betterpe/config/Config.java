@@ -67,6 +67,18 @@ public class Config {
 	// ---- Feature 9: GitHub release update checker ----
 	public boolean updateCheckEnabled = true;
 
+	// ---- Feature 10: Remote status webpage (better-planetearth.ggm.kr/<닉네임>) ----
+	public boolean remoteStatusEnabled = false;
+	/** WebSocket endpoint of the status backend. */
+	public String remoteStatusServerUrl = "wss://better-planetearth.ggm.kr/ws";
+	/**
+	 * The backend has no separate registration step: whichever password first
+	 * authenticates a nickname becomes that nickname's password server-side, so
+	 * this field doubles as both "set password" (first connect) and "login"
+	 * (every connect after).
+	 */
+	public String remoteStatusPassword = "";
+
 	// ---- Feature 5: Ally/nation chat highlight ----
 	public boolean chatHighlightEnabled = true;
 	/** Color code for own-nation members (Minecraft formatting char without the &). */

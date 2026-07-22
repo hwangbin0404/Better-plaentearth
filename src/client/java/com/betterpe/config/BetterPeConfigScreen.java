@@ -185,6 +185,25 @@ public final class BetterPeConfigScreen {
 				.setSaveConsumer(v -> cfg.updateCheckEnabled = v)
 				.build());
 
+		// ---- Remote status webpage ----
+		ConfigCategory remote = builder.getOrCreateCategory(Text.translatable("text.betterpe.category.remote"));
+		remote.addEntry(eb.startBooleanToggle(Text.literal("원격 상태 페이지 사용"), cfg.remoteStatusEnabled)
+				.setDefaultValue(false)
+				.setTooltip(Text.literal(
+						"http://better-planetearth.ggm.kr/<닉네임> 에서 온라인/대기열 상태 확인 및 원격 접속종료가 가능해집니다.\n"
+								+ "아래 비밀번호를 처음 켤 때 정하면 그 값이 그대로 서버에 등록되고, 그 뒤로는 그 비밀번호로만 인증됩니다."))
+				.setSaveConsumer(v -> cfg.remoteStatusEnabled = v)
+				.build());
+		remote.addEntry(eb.startStrField(Text.literal("페이지 비밀번호"), cfg.remoteStatusPassword)
+				.setDefaultValue("")
+				.setTooltip(Text.literal("비어 있으면 원격 상태 페이지 기능이 동작하지 않습니다."))
+				.setSaveConsumer(v -> cfg.remoteStatusPassword = v)
+				.build());
+		remote.addEntry(eb.startStrField(Text.literal("서버 주소(고급)"), cfg.remoteStatusServerUrl)
+				.setDefaultValue("wss://better-planetearth.ggm.kr/ws")
+				.setSaveConsumer(v -> cfg.remoteStatusServerUrl = v)
+				.build());
+
 		return builder.build();
 	}
 }

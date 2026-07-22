@@ -18,6 +18,7 @@ import com.betterpe.hud.HudRenderer;
 import com.betterpe.hud.elements.GoodsBeaconHudElement;
 import com.betterpe.hud.elements.LocationHudElement;
 import com.betterpe.hud.elements.ScoreboardHudElement;
+import com.betterpe.remote.RemoteStatusManager;
 import com.betterpe.tag.PlayerTagRenderer;
 import com.betterpe.update.UpdateChecker;
 import com.betterpe.war.WarManager;
@@ -25,6 +26,7 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import org.lwjgl.glfw.GLFW;
@@ -87,6 +89,11 @@ public class BetterPlanetEarthClient implements ClientModInitializer {
 			UpdateChecker.checkAsync();
 		});
 
+		// Remote status page: track world join/leave so the status page knows when to
+		// show "접속 확인 중" vs "오프라인" (queue/online state itself comes from chat lines).
+		ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> RemoteStatusManager.onWorldJoin());
+		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> RemoteStatusManager.onWorldDisconnect());
+
 		ClientTickEvents.END_CLIENT_TICK.register(this::onClientTick);
 
 		BetterPlanetEarth.LOGGER.info("Better PlanetEarth client initialized");
@@ -99,6 +106,10 @@ public class BetterPlanetEarthClient implements ClientModInitializer {
 				client.setScreen(new HudEditScreen());
 			}
 		}
+
+		// Runs regardless of world state so the status page reflects "offline" even at
+		// the main menu, and so the socket is already authenticated once a world loads.
+		RemoteStatusManager.tick();
 
 		if (client.world == null || client.player == null) {
 			return;

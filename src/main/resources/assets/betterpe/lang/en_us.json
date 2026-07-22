@@ -14,5 +14,6 @@
 	"text.betterpe.category.headcount": "Headcount",
 	"text.betterpe.category.brewery": "Brewery Timer",
 	"text.betterpe.category.boat": "Boat Auto-Move",
-	"text.betterpe.category.update": "Update Checker"
+	"text.betterpe.category.update": "Update Checker",
+	"text.betterpe.category.remote": "Remote Status Page"
 }
