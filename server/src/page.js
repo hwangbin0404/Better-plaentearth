@@ -15,12 +15,6 @@ const BASE_STYLE = `
     display: flex; align-items: center; justify-content: center;
     min-height: 100vh; margin: 0; padding: 16px;
   }
-  @media (prefers-color-scheme: light) {
-    body { background: #f2f3f5; color: #1a1a1a; }
-    .card { background: #ffffff; border-color: rgba(0,0,0,0.08); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
-    .muted { color: #6b7280; }
-    input[type=password] { background: #f7f7f8; color: #1a1a1a; border-color: rgba(0,0,0,0.15); }
-  }
   .card {
     background: #171a21; border: 1px solid rgba(255,255,255,0.08); border-radius: 16px;
     padding: 32px; width: 100%; max-width: 340px; text-align: center;
@@ -55,6 +49,16 @@ const BASE_STYLE = `
   button.danger { background: rgba(239,68,68,0.15); color: #ef4444; margin-top: 18px; width: 100%; }
   button.danger:disabled { opacity: 0.4; cursor: not-allowed; }
   .error { color: #ef4444; font-size: 13px; margin: 4px 0 0; }
+
+  /* Must come last: same-specificity rules above would otherwise win by source
+     order even when this media query matches, silently no-oping the override
+     (e.g. dark card background + inherited light-mode text color = invisible text). */
+  @media (prefers-color-scheme: light) {
+    body { background: #f2f3f5; color: #1a1a1a; }
+    .card { background: #ffffff; border-color: rgba(0,0,0,0.08); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+    .muted { color: #6b7280; }
+    input[type=password] { background: #f7f7f8; color: #1a1a1a; border-color: rgba(0,0,0,0.15); }
+  }
 `;
 
 function shell(nickname, body) {

@@ -7,6 +7,10 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.screen.DisconnectedScreen;
+import net.minecraft.client.gui.screen.TitleScreen;
+import net.minecraft.client.gui.screen.multiplayer.MultiplayerScreen;
+import net.minecraft.text.Text;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -149,7 +153,19 @@ public final class RemoteStatusManager {
 
 	private static void requestRemoteDisconnect() {
 		MinecraftClient client = MinecraftClient.getInstance();
-		client.execute(client::disconnect);
+		client.execute(() -> {
+			if (client.world == null) {
+				return;
+			}
+			// disconnect() alone only tears down the connection and leaves the screen on
+			// the transient ProgressScreen it uses internally for its own cleanup; a real
+			// server kick follows up with a proper DisconnectedScreen, so mirror that here.
+			client.disconnect();
+			client.setScreen(new DisconnectedScreen(
+					new MultiplayerScreen(new TitleScreen()),
+					Text.literal("접속 종료"),
+					Text.literal("원격 상태 페이지에서 접속 종료를 요청했습니다.")));
+		});
 	}
 
 	private static final class Listener implements WebSocket.Listener {
