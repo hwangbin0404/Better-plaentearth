@@ -17,6 +17,7 @@
 ```json
 {"type":"auth","nickname":"Steve","password":"..."}
 {"type":"status","state":"OFFLINE|CONNECTING|QUEUE|ONLINE","pos":5,"total":14}
+{"type":"chat","text":"..."}
 ```
 
 서버 -> 모드:
@@ -24,7 +25,11 @@
 {"type":"auth_ok"}
 {"type":"auth_fail"}
 {"type":"disconnect_request"}
+{"type":"run_command","command":"..."}
 ```
+
+웹 페이지의 명령어 입력창에 친 내용은 그대로 게임 채팅으로 전송됩니다(`/`로 시작하면
+명령어, 아니면 일반 채팅) — 즉 그 계정으로 뭐든 칠 수 있다는 뜻이니 비밀번호 유출에 주의.
 
 ## 로컬 실행
 

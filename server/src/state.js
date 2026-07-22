@@ -7,6 +7,8 @@ emitter.setMaxListeners(0);
 
 const statuses = new Map(); // nickname(lower) -> { state, pos, total, updatedAt }
 const modSockets = new Map(); // nickname(lower) -> live ws connection from the mod
+const chatBuffers = new Map(); // nickname(lower) -> recent {text, ts}[], newest last
+const CHAT_BUFFER_LIMIT = 200;
 
 function setStatus(nickname, status) {
   const key = nickname.toLowerCase();
@@ -21,6 +23,31 @@ function getStatus(nickname) {
 
 function onUpdate(nickname, cb) {
   const event = 'update:' + nickname.toLowerCase();
+  emitter.on(event, cb);
+  return () => emitter.off(event, cb);
+}
+
+function pushChat(nickname, text) {
+  const key = nickname.toLowerCase();
+  const entry = { text, ts: Date.now() };
+  let buf = chatBuffers.get(key);
+  if (!buf) {
+    buf = [];
+    chatBuffers.set(key, buf);
+  }
+  buf.push(entry);
+  if (buf.length > CHAT_BUFFER_LIMIT) {
+    buf.shift();
+  }
+  emitter.emit('chat:' + key, entry);
+}
+
+function getChatHistory(nickname) {
+  return chatBuffers.get(nickname.toLowerCase()) || [];
+}
+
+function onChat(nickname, cb) {
+  const event = 'chat:' + nickname.toLowerCase();
   emitter.on(event, cb);
   return () => emitter.off(event, cb);
 }
@@ -46,4 +73,19 @@ function requestDisconnect(nickname) {
   return false;
 }
 
-module.exports = { setStatus, getStatus, onUpdate, setModSocket, clearModSocket, requestDisconnect };
+/** Returns true if a live mod connection took the command, false if the player isn't connected. */
+function requestCommand(nickname, command) {
+  const ws = modSockets.get(nickname.toLowerCase());
+  if (ws && ws.readyState === ws.OPEN) {
+    ws.send(JSON.stringify({ type: 'run_command', command }));
+    return true;
+  }
+  return false;
+}
+
+module.exports = {
+  setStatus, getStatus, onUpdate,
+  pushChat, getChatHistory, onChat,
+  setModSocket, clearModSocket,
+  requestDisconnect, requestCommand,
+};

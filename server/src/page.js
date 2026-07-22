@@ -26,6 +26,7 @@ const BASE_STYLE = `
     background: #171a21; border: 1px solid rgba(255,255,255,0.08); border-radius: 16px;
     padding: 32px; width: 100%; max-width: 380px; text-align: center;
   }
+  .card.wide { max-width: 480px; }
   img.head { border-radius: 10px; image-rendering: pixelated; }
   h1 { font-size: 20px; margin: 16px 0 4px; word-break: break-all; }
   .muted { color: #9aa0a6; font-size: 13px; }
@@ -44,10 +45,20 @@ const BASE_STYLE = `
   .badge.online .dot { background: #22c55e; }
   .updated { margin-top: 10px; font-size: 12px; }
   form { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
-  input[type=password] {
+  input[type=password], input[type=text] {
     background: rgba(255,255,255,0.06); color: inherit; border: 1px solid rgba(255,255,255,0.15);
     border-radius: 8px; padding: 10px 12px; font-size: 14px; text-align: center;
   }
+  .cmdform { margin-top: 20px; display: flex; flex-direction: row; gap: 8px; }
+  .cmdform input[type=text] { flex: 1; text-align: left; }
+  .chatlog {
+    margin-top: 10px; text-align: left; background: rgba(127,127,127,0.08);
+    border: 1px solid rgba(127,127,127,0.18); border-radius: 8px;
+    height: 220px; overflow-y: auto; padding: 8px 10px;
+    font-family: ui-monospace, Consolas, monospace; font-size: 12px; line-height: 1.5;
+  }
+  .chatlog .line { white-space: pre-wrap; word-break: break-word; padding: 1px 0; }
+  .chatlog .empty { color: #9aa0a6; }
   button {
     border: none; border-radius: 8px; padding: 10px 12px; font-size: 14px; font-weight: 600;
     cursor: pointer;
@@ -73,9 +84,10 @@ const BASE_STYLE = `
     body { background: #f2f3f5; color: #1a1a1a; }
     .card { background: #ffffff; border-color: rgba(0,0,0,0.08); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
     .muted { color: #6b7280; }
-    input[type=password] { background: #f7f7f8; color: #1a1a1a; border-color: rgba(0,0,0,0.15); }
+    input[type=password], input[type=text] { background: #f7f7f8; color: #1a1a1a; border-color: rgba(0,0,0,0.15); }
     .stats { border-top-color: rgba(0,0,0,0.1); }
     .stat-row .label { color: #6b7280; }
+    .chatlog { background: #f7f7f8; border-color: rgba(0,0,0,0.1); }
   }
 `;
 
@@ -147,13 +159,18 @@ const STATE_CLASS = {
 
 function renderStatusPage(nickname, resident) {
   const nick = encodeURIComponent(nickname);
-  const body = `<div class="card">
+  const body = `<div class="card wide">
     <img class="head" id="head" src="https://mc-heads.net/avatar/${nick}/96" width="96" height="96" alt="">
     <h1>${escapeHtml(nickname)}</h1>
     <div class="badge offline" id="badge"><span class="dot"></span><span id="badge-text">확인 중...</span></div>
     <div class="muted updated" id="updated"></div>
     <button class="danger" id="disconnect-btn">접속 종료</button>
     <div class="stats" id="stats"></div>
+    <form class="cmdform" id="cmdform">
+      <input type="text" id="cmdinput" placeholder="명령어 또는 채팅 입력 (예: /특품추천)" autocomplete="off" maxlength="256">
+      <button class="primary" type="submit">전송</button>
+    </form>
+    <div class="chatlog" id="chatlog"><div class="empty">채팅 기록을 불러오는 중...</div></div>
   </div>
   <script>
     const STATE_LABEL = ${JSON.stringify(STATE_LABEL)};
@@ -163,6 +180,9 @@ function renderStatusPage(nickname, resident) {
     const updated = document.getElementById('updated');
     const btn = document.getElementById('disconnect-btn');
     const statsEl = document.getElementById('stats');
+    const chatlog = document.getElementById('chatlog');
+    const cmdForm = document.getElementById('cmdform');
+    const cmdInput = document.getElementById('cmdinput');
 
     // modState: the mod's own websocket push -- the only source for queue
     // position, but it can go stale if the mod's connection dies silently.
@@ -270,6 +290,18 @@ function renderStatusPage(nickname, resident) {
       }
     }
 
+    function appendChatLine(text, ts) {
+      const line = document.createElement('div');
+      line.className = 'line';
+      const time = ts ? ('[' + new Date(ts).toLocaleTimeString('ko-KR', { hour12: false }) + '] ') : '';
+      line.textContent = time + text;
+      chatlog.appendChild(line);
+      while (chatlog.children.length > 300) {
+        chatlog.removeChild(chatlog.firstChild);
+      }
+      chatlog.scrollTop = chatlog.scrollHeight;
+    }
+
     renderStats();
     renderBadge();
     refreshResident();
@@ -277,9 +309,47 @@ function renderStatusPage(nickname, resident) {
 
     const es = new EventSource('/${nick}/events');
     es.onmessage = (e) => {
-      modState = JSON.parse(e.data);
-      renderBadge();
+      const data = JSON.parse(e.data);
+      if (data.kind === 'status') {
+        modState = data;
+        renderBadge();
+      } else if (data.kind === 'chat_history') {
+        chatlog.innerHTML = '';
+        if (data.lines.length === 0) {
+          const empty = document.createElement('div');
+          empty.className = 'empty';
+          empty.textContent = '아직 채팅 기록이 없습니다.';
+          chatlog.appendChild(empty);
+        } else {
+          data.lines.forEach((l) => appendChatLine(l.text, l.ts));
+        }
+      } else if (data.kind === 'chat') {
+        if (chatlog.querySelector('.empty')) {
+          chatlog.innerHTML = '';
+        }
+        appendChatLine(data.text, data.ts);
+      }
     };
+
+    cmdForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const command = cmdInput.value.trim();
+      if (!command) return;
+      cmdInput.value = '';
+      try {
+        const res = await fetch('/${nick}/command', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ command }),
+        });
+        const data = await res.json();
+        if (!data.ok) {
+          appendChatLine('(전송 실패: 접속 중인 클라이언트 없음)');
+        }
+      } catch (e) {
+        appendChatLine('(전송 실패: ' + command + ')');
+      }
+    });
 
     btn.addEventListener('click', async () => {
       btn.disabled = true;

@@ -95,14 +95,18 @@ app.get('/:nickname/events', (req, res) => {
   });
   res.flushHeaders();
 
-  const send = (status) => res.write(`data: ${JSON.stringify(status)}\n\n`);
-  send(state.getStatus(nickname));
-  const unsubscribe = state.onUpdate(nickname, send);
+  const write = (payload) => res.write(`data: ${JSON.stringify(payload)}\n\n`);
+  write({ kind: 'status', ...state.getStatus(nickname) });
+  write({ kind: 'chat_history', lines: state.getChatHistory(nickname) });
+
+  const unsubStatus = state.onUpdate(nickname, (status) => write({ kind: 'status', ...status }));
+  const unsubChat = state.onChat(nickname, (entry) => write({ kind: 'chat', ...entry }));
   const heartbeat = setInterval(() => res.write(':ping\n\n'), 25000);
 
   req.on('close', () => {
     clearInterval(heartbeat);
-    unsubscribe();
+    unsubStatus();
+    unsubChat();
   });
 });
 
@@ -122,6 +126,18 @@ app.post('/:nickname/disconnect', (req, res) => {
   res.json({ ok: state.requestDisconnect(nickname) });
 });
 
+app.post('/:nickname/command', express.json(), (req, res) => {
+  const nickname = req.params.nickname;
+  if (!NICK_RE.test(nickname) || !checkAuth(req, nickname)) {
+    return res.status(401).end();
+  }
+  const command = String(req.body.command || '').slice(0, 256).trim();
+  if (!command) {
+    return res.status(400).json({ ok: false });
+  }
+  res.json({ ok: state.requestCommand(nickname, command) });
+});
+
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: '/ws' });
 
@@ -129,7 +145,9 @@ const wss = new WebSocketServer({ server, path: '/ws' });
 // -> {"type":"auth","nickname":"...","password":"..."}     first message after connect
 // <- {"type":"auth_ok"} | {"type":"auth_fail"}
 // -> {"type":"status","state":"OFFLINE|CONNECTING|QUEUE|ONLINE","pos":N,"total":N}
+// -> {"type":"chat","text":"..."}                           every game chat line, forwarded live
 // <- {"type":"disconnect_request"}                          web UI clicked "접속 종료"
+// <- {"type":"run_command","command":"..."}                 web UI submitted the command box
 wss.on('connection', (ws) => {
   let authedNickname = null;
 
@@ -164,6 +182,10 @@ wss.on('connection', (ws) => {
         pos: typeof msg.pos === 'number' ? msg.pos : undefined,
         total: typeof msg.total === 'number' ? msg.total : undefined,
       });
+    }
+
+    if (msg.type === 'chat' && authedNickname && typeof msg.text === 'string') {
+      state.pushChat(authedNickname, msg.text);
     }
   });
 

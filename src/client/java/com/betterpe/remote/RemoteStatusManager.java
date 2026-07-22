@@ -112,6 +112,7 @@ public final class RemoteStatusManager {
 		if (!cfg.modEnabled || !cfg.remoteStatusEnabled) {
 			return;
 		}
+		sendChatLine(plain);
 		Matcher m = QUEUE_PATTERN.matcher(plain);
 		if (m.find()) {
 			sendState(State.QUEUE, Integer.parseInt(m.group(1)), Integer.parseInt(m.group(2)));
@@ -177,6 +178,37 @@ public final class RemoteStatusManager {
 			o.addProperty("total", total);
 		}
 		ws.sendText(GSON.toJson(o), true);
+	}
+
+	/** Forwards one game chat line to the status page's live chat log. */
+	private static void sendChatLine(String plain) {
+		WebSocket ws = socket;
+		if (ws == null || !authed) {
+			return;
+		}
+		JsonObject o = new JsonObject();
+		o.addProperty("type", "chat");
+		o.addProperty("text", plain);
+		ws.sendText(GSON.toJson(o), true);
+	}
+
+	/** Runs a command/message the web page's input box submitted, exactly as if typed in chat. */
+	private static void runCommand(String command) {
+		MinecraftClient client = MinecraftClient.getInstance();
+		client.execute(() -> {
+			if (client.player == null || client.getNetworkHandler() == null) {
+				return;
+			}
+			String trimmed = command.trim();
+			if (trimmed.isEmpty()) {
+				return;
+			}
+			if (trimmed.startsWith("/")) {
+				client.getNetworkHandler().sendChatCommand(trimmed.substring(1));
+			} else {
+				client.getNetworkHandler().sendChatMessage(trimmed);
+			}
+		});
 	}
 
 	private static void requestRemoteDisconnect() {
@@ -265,6 +297,11 @@ public final class RemoteStatusManager {
 								"원격 상태 페이지: 비밀번호가 서버에 이미 등록된 값과 다릅니다. 설정에서 비밀번호를 확인하세요.");
 					}
 					case "disconnect_request" -> requestRemoteDisconnect();
+					case "run_command" -> {
+						if (o.has("command")) {
+							runCommand(o.get("command").getAsString());
+						}
+					}
 					default -> {
 					}
 				}
