@@ -131,7 +131,7 @@ function renderStatusPage(nickname, resident) {
     <h1>${escapeHtml(nickname)}</h1>
     <div class="badge offline" id="badge"><span class="dot"></span><span id="badge-text">확인 중...</span></div>
     <div class="muted updated" id="updated"></div>
-    <button class="danger" id="disconnect-btn" disabled>접속 종료</button>
+    <button class="danger" id="disconnect-btn">접속 종료</button>
     <div class="stats" id="stats"></div>
   </div>
   <script>
@@ -192,7 +192,9 @@ function renderStatusPage(nickname, resident) {
       updated.textContent = modState.updatedAt
         ? ('마지막 업데이트: ' + new Date(modState.updatedAt).toLocaleTimeString('ko-KR'))
         : '';
-      btn.disabled = (s.state !== 'QUEUE' && s.state !== 'ONLINE');
+      // Left clickable regardless of the shown state: the backend already tells the
+      // user honestly if there's no live mod connection to send the request to, and a
+      // permanently grayed-out button reads as "the page is frozen" more than anything.
     }
 
     function statRow(label, value) {
@@ -250,7 +252,7 @@ function renderStatusPage(nickname, resident) {
     renderStats();
     renderBadge();
     refreshResident();
-    setInterval(refreshResident, 30000);
+    setInterval(refreshResident, 10000);
 
     const es = new EventSource('/${nick}/events');
     es.onmessage = (e) => {

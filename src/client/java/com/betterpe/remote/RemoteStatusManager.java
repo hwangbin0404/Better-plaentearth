@@ -15,6 +15,7 @@ import net.minecraft.text.Text;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.WebSocket;
+import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.concurrent.CompletionStage;
 import java.util.regex.Matcher;
@@ -44,10 +45,18 @@ public final class RemoteStatusManager {
 			.connectTimeout(Duration.ofSeconds(8))
 			.build();
 	private static final long RECONNECT_DELAY_MS = 5000;
+	// The socket can go quiet without ever telling us it closed (a dropped connection
+	// that never sent a TCP FIN/RST our way, e.g. right around the game's own
+	// disconnect/reconnect cycle) -- ping it and force a reconnect if it stops answering,
+	// instead of trusting onClose/onError to always fire.
+	private static final long PING_INTERVAL_MS = 15000;
+	private static final long STALE_TIMEOUT_MS = 45000;
 
 	private static volatile WebSocket socket;
 	private static volatile boolean authed = false;
 	private static volatile long nextReconnectAttemptMs = 0L;
+	private static volatile long lastAliveMs = 0L;
+	private static volatile long lastPingSentMs = 0L;
 	private static volatile State lastSentState = null;
 	private static volatile int lastPos = -1;
 	private static volatile int lastTotal = -1;
@@ -65,7 +74,26 @@ public final class RemoteStatusManager {
 			closeIfOpen();
 			return;
 		}
-		if (socket == null && System.currentTimeMillis() >= nextReconnectAttemptMs) {
+		long now = System.currentTimeMillis();
+		WebSocket ws = socket;
+		if (ws != null) {
+			if (now - lastAliveMs > STALE_TIMEOUT_MS) {
+				BetterPlanetEarth.LOGGER.debug("Remote status socket looked dead, forcing reconnect");
+				try {
+					ws.abort();
+				} catch (Exception ignored) {
+				}
+				socket = null;
+				authed = false;
+			} else if (authed && now - lastPingSentMs > PING_INTERVAL_MS) {
+				lastPingSentMs = now;
+				try {
+					ws.sendPing(ByteBuffer.allocate(0));
+				} catch (Exception ignored) {
+				}
+			}
+		}
+		if (socket == null && now >= nextReconnectAttemptMs) {
 			connect(cfg);
 		}
 	}
@@ -177,6 +205,7 @@ public final class RemoteStatusManager {
 		public void onOpen(WebSocket webSocket) {
 			socket = webSocket;
 			authed = false;
+			lastAliveMs = System.currentTimeMillis();
 			Config cfg = ConfigManager.get();
 			JsonObject o = new JsonObject();
 			o.addProperty("type", "auth");
@@ -188,12 +217,20 @@ public final class RemoteStatusManager {
 
 		@Override
 		public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
+			lastAliveMs = System.currentTimeMillis();
 			INBOUND_BUFFER.append(data);
 			if (last) {
 				String msg = INBOUND_BUFFER.toString();
 				INBOUND_BUFFER.setLength(0);
 				handleMessage(msg);
 			}
+			webSocket.request(1);
+			return null;
+		}
+
+		@Override
+		public CompletionStage<?> onPong(WebSocket webSocket, ByteBuffer message) {
+			lastAliveMs = System.currentTimeMillis();
 			webSocket.request(1);
 			return null;
 		}

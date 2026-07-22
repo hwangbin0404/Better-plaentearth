@@ -7,7 +7,7 @@
 // only thing that can see queue position, but has no idea about nation/town).
 
 const BASE = 'https://api.planetearth.kr';
-const CACHE_TTL_MS = 60 * 1000;
+const CACHE_TTL_MS = 20 * 1000;
 const cache = new Map(); // nickname(lower) -> { data, expires }
 
 async function getResident(nickname) {
