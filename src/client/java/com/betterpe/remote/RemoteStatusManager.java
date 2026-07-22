@@ -157,9 +157,13 @@ public final class RemoteStatusManager {
 			if (client.world == null) {
 				return;
 			}
-			// disconnect() alone only tears down the connection and leaves the screen on
-			// the transient ProgressScreen it uses internally for its own cleanup; a real
-			// server kick follows up with a proper DisconnectedScreen, so mirror that here.
+			// Mirrors GameMenuScreen's own "Disconnect" button exactly: world.disconnect()
+			// is what actually notifies the server/proxy and closes the network channel;
+			// client.disconnect() only tears down local client-side state. Calling just the
+			// latter (as an earlier version of this did) leaves the channel dangling, so the
+			// server eventually times it out itself -- which is what was showing up as a
+			// ReadTimeoutException and an unexpected kick a few seconds after this ran.
+			client.world.disconnect();
 			client.disconnect();
 			client.setScreen(new DisconnectedScreen(
 					new MultiplayerScreen(new TitleScreen()),
