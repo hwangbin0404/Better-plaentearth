@@ -22,6 +22,7 @@ const BASE_STYLE = `
   img.head { border-radius: 10px; image-rendering: pixelated; }
   h1 { font-size: 20px; margin: 16px 0 4px; word-break: break-all; }
   .muted { color: #9aa0a6; font-size: 13px; }
+  .info { margin-top: 6px; }
   .badge {
     display: inline-flex; align-items: center; gap: 8px; margin-top: 18px;
     padding: 8px 16px; border-radius: 999px; font-weight: 600; font-size: 14px;
@@ -106,11 +107,21 @@ const STATE_CLASS = {
   ONLINE: 'online',
 };
 
-function renderStatusPage(nickname) {
+function residentInfoText(resident) {
+  if (!resident) {
+    return '플레닛어스 API에서 이 닉네임 정보를 찾을 수 없습니다.';
+  }
+  const nation = resident.nation || '무소속';
+  const town = resident.town || '무소속';
+  return `국가 ${nation} · 마을 ${town} · API 기준 ${resident.online ? '온라인' : '오프라인'}`;
+}
+
+function renderStatusPage(nickname, resident) {
   const nick = encodeURIComponent(nickname);
   const body = `<div class="card">
     <img class="head" id="head" src="https://mc-heads.net/avatar/${nick}/96" width="96" height="96" alt="">
     <h1>${escapeHtml(nickname)}</h1>
+    <div class="muted info" id="resident-info">${escapeHtml(residentInfoText(resident))}</div>
     <div class="badge offline" id="badge"><span class="dot"></span><span id="badge-text">확인 중...</span></div>
     <div class="muted updated" id="updated"></div>
     <button class="danger" id="disconnect-btn" disabled>접속 종료</button>
@@ -122,6 +133,25 @@ function renderStatusPage(nickname) {
     const badgeText = document.getElementById('badge-text');
     const updated = document.getElementById('updated');
     const btn = document.getElementById('disconnect-btn');
+    const residentInfo = document.getElementById('resident-info');
+
+    // The mod's websocket push is the only real-time source (queue position
+    // especially), but nation/town/API-reported online state come from the
+    // actual PlanetEarth API, so poll that separately and merge it in.
+    async function refreshResident() {
+      try {
+        const res = await fetch('/${nick}/resident');
+        if (!res.ok) return;
+        const r = await res.json();
+        residentInfo.textContent = r
+          ? ('국가 ' + (r.nation || '무소속') + ' · 마을 ' + (r.town || '무소속') + ' · API 기준 ' + (r.online ? '온라인' : '오프라인'))
+          : '플레닛어스 API에서 이 닉네임 정보를 찾을 수 없습니다.';
+      } catch (e) {
+        // Keep whatever was last shown; a transient fetch failure isn't worth surfacing.
+      }
+    }
+    refreshResident();
+    setInterval(refreshResident, 30000);
 
     function render(s) {
       const cls = STATE_CLASS[s.state] || 'offline';

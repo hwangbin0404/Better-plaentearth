@@ -8,6 +8,7 @@ const { WebSocketServer } = require('ws');
 
 const store = require('./store');
 const state = require('./state');
+const peapi = require('./peapi');
 const { renderLoginPage, renderNotRegisteredPage, renderStatusPage } = require('./page');
 
 const PORT = process.env.PORT || 8787;
@@ -41,7 +42,7 @@ function checkAuth(req, nickname) {
 
 app.get('/healthz', (req, res) => res.send('ok'));
 
-app.get('/:nickname', (req, res) => {
+app.get('/:nickname', async (req, res) => {
   const nickname = req.params.nickname;
   if (!NICK_RE.test(nickname)) {
     return res.status(400).send('잘못된 닉네임입니다.');
@@ -52,7 +53,8 @@ app.get('/:nickname', (req, res) => {
   if (!checkAuth(req, nickname)) {
     return res.send(renderLoginPage(nickname, false));
   }
-  res.send(renderStatusPage(nickname));
+  const resident = await peapi.getResident(nickname);
+  res.send(renderStatusPage(nickname, resident));
 });
 
 app.post('/:nickname/login', (req, res) => {
@@ -100,6 +102,14 @@ app.get('/:nickname/events', (req, res) => {
     clearInterval(heartbeat);
     unsubscribe();
   });
+});
+
+app.get('/:nickname/resident', async (req, res) => {
+  const nickname = req.params.nickname;
+  if (!NICK_RE.test(nickname) || !checkAuth(req, nickname)) {
+    return res.status(401).end();
+  }
+  res.json(await peapi.getResident(nickname));
 });
 
 app.post('/:nickname/disconnect', (req, res) => {
