@@ -88,6 +88,27 @@ function shell(nickname, body) {
 </head><body>${body}</body></html>`;
 }
 
+function renderHomePage() {
+  const body = `<div class="card">
+    <h1>Better PlanetEarth</h1>
+    <p class="muted">마인크래프트 닉네임을 입력하면 해당 유저의 상태 페이지로 이동합니다.</p>
+    <form id="go">
+      <input type="text" name="nick" placeholder="닉네임" maxlength="16" autofocus required>
+      <button class="primary" type="submit">이동</button>
+    </form>
+  </div>
+  <script>
+    document.getElementById('go').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const nick = e.target.nick.value.trim();
+      if (nick) {
+        location.href = '/' + encodeURIComponent(nick);
+      }
+    });
+  </script>`;
+  return shell('Better PlanetEarth', body);
+}
+
 function renderLoginPage(nickname, failed) {
   const body = `<div class="card">
     <img class="head" src="https://mc-heads.net/avatar/${encodeURIComponent(nickname)}/72" width="72" height="72" alt="">
@@ -276,4 +297,4 @@ function renderStatusPage(nickname, resident) {
   return shell(nickname, body);
 }
 
-module.exports = { renderLoginPage, renderNotRegisteredPage, renderStatusPage, escapeHtml };
+module.exports = { renderHomePage, renderLoginPage, renderNotRegisteredPage, renderStatusPage, escapeHtml };

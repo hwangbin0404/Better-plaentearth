@@ -9,7 +9,7 @@ const { WebSocketServer } = require('ws');
 const store = require('./store');
 const state = require('./state');
 const peapi = require('./peapi');
-const { renderLoginPage, renderNotRegisteredPage, renderStatusPage } = require('./page');
+const { renderHomePage, renderLoginPage, renderNotRegisteredPage, renderStatusPage } = require('./page');
 
 const PORT = process.env.PORT || 8787;
 const NICK_RE = /^[A-Za-z0-9_]{1,16}$/;
@@ -41,6 +41,8 @@ function checkAuth(req, nickname) {
 }
 
 app.get('/healthz', (req, res) => res.send('ok'));
+
+app.get('/', (req, res) => res.send(renderHomePage()));
 
 app.get('/:nickname', async (req, res) => {
   const nickname = req.params.nickname;
