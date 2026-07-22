@@ -6,6 +6,13 @@ function escapeHtml(s) {
   }[c]));
 }
 
+// Embeds a JSON value inside an inline <script> block safely -- JSON.stringify
+// alone would let a "</script>" inside a player-controlled string (title,
+// friends, surname, ...) break out of the script tag early.
+function safeJsonForScript(value) {
+  return JSON.stringify(value).replace(/</g, '\\u003c');
+}
+
 const BASE_STYLE = `
   :root { color-scheme: light dark; }
   * { box-sizing: border-box; }
@@ -17,12 +24,11 @@ const BASE_STYLE = `
   }
   .card {
     background: #171a21; border: 1px solid rgba(255,255,255,0.08); border-radius: 16px;
-    padding: 32px; width: 100%; max-width: 340px; text-align: center;
+    padding: 32px; width: 100%; max-width: 380px; text-align: center;
   }
   img.head { border-radius: 10px; image-rendering: pixelated; }
   h1 { font-size: 20px; margin: 16px 0 4px; word-break: break-all; }
   .muted { color: #9aa0a6; font-size: 13px; }
-  .info { margin-top: 6px; }
   .badge {
     display: inline-flex; align-items: center; gap: 8px; margin-top: 18px;
     padding: 8px 16px; border-radius: 999px; font-weight: 600; font-size: 14px;
@@ -50,6 +56,15 @@ const BASE_STYLE = `
   button.danger { background: rgba(239,68,68,0.15); color: #ef4444; margin-top: 18px; width: 100%; }
   button.danger:disabled { opacity: 0.4; cursor: not-allowed; }
   .error { color: #ef4444; font-size: 13px; margin: 4px 0 0; }
+  .stats {
+    margin-top: 20px; padding-top: 16px; border-top: 1px solid rgba(127,127,127,0.18);
+    text-align: left;
+  }
+  .stat-row {
+    display: flex; justify-content: space-between; gap: 16px; padding: 5px 0; font-size: 13px;
+  }
+  .stat-row .label { color: #9aa0a6; flex-shrink: 0; }
+  .stat-row .value { font-weight: 600; text-align: right; word-break: break-word; }
 
   /* Must come last: same-specificity rules above would otherwise win by source
      order even when this media query matches, silently no-oping the override
@@ -59,6 +74,8 @@ const BASE_STYLE = `
     .card { background: #ffffff; border-color: rgba(0,0,0,0.08); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
     .muted { color: #6b7280; }
     input[type=password] { background: #f7f7f8; color: #1a1a1a; border-color: rgba(0,0,0,0.15); }
+    .stats { border-top-color: rgba(0,0,0,0.1); }
+    .stat-row .label { color: #6b7280; }
   }
 `;
 
@@ -107,24 +124,15 @@ const STATE_CLASS = {
   ONLINE: 'online',
 };
 
-function residentInfoText(resident) {
-  if (!resident) {
-    return '플레닛어스 API에서 이 닉네임 정보를 찾을 수 없습니다.';
-  }
-  const nation = resident.nation || '무소속';
-  const town = resident.town || '무소속';
-  return `국가 ${nation} · 마을 ${town} · API 기준 ${resident.online ? '온라인' : '오프라인'}`;
-}
-
 function renderStatusPage(nickname, resident) {
   const nick = encodeURIComponent(nickname);
   const body = `<div class="card">
     <img class="head" id="head" src="https://mc-heads.net/avatar/${nick}/96" width="96" height="96" alt="">
     <h1>${escapeHtml(nickname)}</h1>
-    <div class="muted info" id="resident-info">${escapeHtml(residentInfoText(resident))}</div>
     <div class="badge offline" id="badge"><span class="dot"></span><span id="badge-text">확인 중...</span></div>
     <div class="muted updated" id="updated"></div>
     <button class="danger" id="disconnect-btn" disabled>접속 종료</button>
+    <div class="stats" id="stats"></div>
   </div>
   <script>
     const STATE_LABEL = ${JSON.stringify(STATE_LABEL)};
@@ -133,27 +141,47 @@ function renderStatusPage(nickname, resident) {
     const badgeText = document.getElementById('badge-text');
     const updated = document.getElementById('updated');
     const btn = document.getElementById('disconnect-btn');
-    const residentInfo = document.getElementById('resident-info');
+    const statsEl = document.getElementById('stats');
 
-    // The mod's websocket push is the only real-time source (queue position
-    // especially), but nation/town/API-reported online state come from the
-    // actual PlanetEarth API, so poll that separately and merge it in.
-    async function refreshResident() {
-      try {
-        const res = await fetch('/${nick}/resident');
-        if (!res.ok) return;
-        const r = await res.json();
-        residentInfo.textContent = r
-          ? ('국가 ' + (r.nation || '무소속') + ' · 마을 ' + (r.town || '무소속') + ' · API 기준 ' + (r.online ? '온라인' : '오프라인'))
-          : '플레닛어스 API에서 이 닉네임 정보를 찾을 수 없습니다.';
-      } catch (e) {
-        // Keep whatever was last shown; a transient fetch failure isn't worth surfacing.
-      }
+    // modState: the mod's own websocket push -- the only source for queue
+    // position, but it can go stale if the mod's connection dies silently.
+    // resident: the actual PlanetEarth API's /resident record -- ground truth
+    // for online/offline and the only source for nation/town/balance/etc.
+    let modState = { state: 'OFFLINE', updatedAt: 0 };
+    let resident = ${safeJsonForScript(resident || null)};
+
+    function stripMcColors(s) {
+      if (!s) return '';
+      // Legacy "&c" codes and the 6-digit hex-RGB "&x&h&h&h&h&h&h" extension.
+      return s.replace(/&x(&[0-9a-fA-F]){6}|&[0-9a-fA-Fk-orK-OR]/g, '').trim();
     }
-    refreshResident();
-    setInterval(refreshResident, 30000);
 
-    function render(s) {
+    function fmtDate(ms) {
+      if (!ms) return '-';
+      return new Date(ms).toLocaleString('ko-KR', { dateStyle: 'medium', timeStyle: 'short' });
+    }
+
+    function fmtBalance(n) {
+      if (n == null || Number.isNaN(n)) return '-';
+      return n.toLocaleString('ko-KR', { maximumFractionDigits: 2 });
+    }
+
+    // Queue position is mod-only info, so trust the mod whenever it has
+    // something more specific than a bare guess. Otherwise defer to the
+    // PlanetEarth API's own online flag -- it's ground truth, and the mod's
+    // websocket link can die without ever flipping back to OFFLINE.
+    function effectiveState() {
+      if (modState.state === 'QUEUE' || modState.state === 'ONLINE') {
+        return modState;
+      }
+      if (resident && resident.online) {
+        return { state: 'ONLINE', updatedAt: modState.updatedAt };
+      }
+      return modState;
+    }
+
+    function renderBadge() {
+      const s = effectiveState();
       const cls = STATE_CLASS[s.state] || 'offline';
       badge.className = 'badge ' + cls;
       let text = STATE_LABEL[s.state] || s.state;
@@ -161,12 +189,74 @@ function renderStatusPage(nickname, resident) {
         text += ' ' + s.pos + ' / ' + s.total;
       }
       badgeText.textContent = text;
-      updated.textContent = s.updatedAt ? ('마지막 업데이트: ' + new Date(s.updatedAt).toLocaleTimeString('ko-KR')) : '';
-      btn.disabled = (s.state === 'OFFLINE');
+      updated.textContent = modState.updatedAt
+        ? ('마지막 업데이트: ' + new Date(modState.updatedAt).toLocaleTimeString('ko-KR'))
+        : '';
+      btn.disabled = (s.state !== 'QUEUE' && s.state !== 'ONLINE');
     }
 
+    function statRow(label, value) {
+      const row = document.createElement('div');
+      row.className = 'stat-row';
+      const l = document.createElement('span');
+      l.className = 'label';
+      l.textContent = label;
+      const v = document.createElement('span');
+      v.className = 'value';
+      v.textContent = value;
+      row.appendChild(l);
+      row.appendChild(v);
+      return row;
+    }
+
+    function renderStats() {
+      statsEl.innerHTML = '';
+      if (!resident) {
+        const p = document.createElement('p');
+        p.className = 'muted';
+        p.textContent = '플레닛어스 API에서 이 닉네임 정보를 찾을 수 없습니다.';
+        statsEl.appendChild(p);
+        return;
+      }
+      const rows = [
+        ['국가', resident.nation || '무소속'],
+        ['국가 직위', resident.nationRanks || '-'],
+        ['마을', resident.town || '무소속'],
+        ['마을 직위', resident.townRanks || '-'],
+        ['칭호', stripMcColors(resident.title) || '-'],
+        ['성', resident.surname || '-'],
+        ['잔고', fmtBalance(resident.balance)],
+        ['API 접속 상태', resident.online ? '온라인' : '오프라인'],
+        ['마지막 접속', fmtDate(resident.lastOnline)],
+        ['가입일', fmtDate(resident.registered)],
+        ['마을 가입일', fmtDate(resident.joinedTownAt)],
+        ['친구', resident.friends || '-'],
+      ];
+      rows.forEach(([label, value]) => statsEl.appendChild(statRow(label, value)));
+    }
+
+    async function refreshResident() {
+      try {
+        const res = await fetch('/${nick}/resident');
+        if (!res.ok) return;
+        resident = await res.json();
+        renderStats();
+        renderBadge();
+      } catch (e) {
+        // Keep whatever was last shown; a transient fetch failure isn't worth surfacing.
+      }
+    }
+
+    renderStats();
+    renderBadge();
+    refreshResident();
+    setInterval(refreshResident, 30000);
+
     const es = new EventSource('/${nick}/events');
-    es.onmessage = (e) => render(JSON.parse(e.data));
+    es.onmessage = (e) => {
+      modState = JSON.parse(e.data);
+      renderBadge();
+    };
 
     btn.addEventListener('click', async () => {
       btn.disabled = true;
@@ -178,7 +268,7 @@ function renderStatusPage(nickname, resident) {
       } catch (e) {
         btn.textContent = '요청 실패';
       }
-      setTimeout(() => { btn.textContent = '접속 종료'; }, 2000);
+      setTimeout(() => { btn.textContent = '접속 종료'; renderBadge(); }, 2000);
     });
   </script>`;
   return shell(nickname, body);
